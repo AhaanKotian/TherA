@@ -8,6 +8,7 @@ Hidden states serve as a consistent "codebook" for guiding InstructPix2Pix.
 
 import torch
 import torch.nn as nn
+import json
 import os
 from typing import Optional, Tuple
 
@@ -16,6 +17,68 @@ from llava.mm_utils import get_model_name_from_path, tokenizer_image_token
 from llava.constants import IMAGE_TOKEN_INDEX, DEFAULT_IMAGE_TOKEN, DEFAULT_IM_START_TOKEN, DEFAULT_IM_END_TOKEN
 from llava.conversation import conv_templates
 from peft import PeftModel
+
+
+DOWNLOAD_HINT = (
+    "  huggingface-cli download liuhaotian/llava-v1.5-7b --local-dir weights/llava-v1.5-7b"
+)
+
+
+def _validate_base_checkpoint(base_path: str, model_name: str):
+    """
+    Fail fast on a base checkpoint this codebase cannot load.
+
+    The bundled llava/ package is the original haotian-liu implementation, which
+    builds its vision tower from a top-level `mm_vision_tower` config key (see
+    LlavaMetaModel.__init__ in llava/model/llava_arch.py). The HF-native port
+    (llava-hf/llava-1.5-7b-hf) has no such key, so the vision tower is never
+    constructed and get_vision_tower() returns None deep inside
+    load_pretrained_model. Its weight names would not have matched either -
+    the language model would have been randomly initialized without raising.
+
+    Checked here rather than in the builder so it runs before ~14GB of weights load.
+    """
+    config_path = os.path.join(base_path, 'config.json')
+    if not os.path.isfile(config_path):
+        # Hub id, or an unusual layout - let load_pretrained_model report it.
+        return
+
+    with open(config_path, 'r') as f:
+        config = json.load(f)
+
+    architectures = config.get('architectures') or []
+    is_hf_format = (
+        'LlavaForConditionalGeneration' in architectures
+        or ('vision_config' in config and 'mm_vision_tower' not in config)
+    )
+    if is_hf_format:
+        raise ValueError(
+            f"{base_path} is an HF-format LLaVA checkpoint (LlavaForConditionalGeneration).\n"
+            f"This repo bundles the original haotian-liu LLaVA code, which requires the\n"
+            f"original format (LlavaLlamaForCausalLM with a top-level `mm_vision_tower`).\n"
+            f"\n"
+            f"Download the correct base:\n"
+            f"{DOWNLOAD_HINT}\n"
+            f"\n"
+            f"Note: the HF-format weight names would not have loaded either - the language\n"
+            f"model would have been randomly initialized without error."
+        )
+
+    if 'mm_vision_tower' not in config:
+        print(
+            f"Warning: {base_path}/config.json has no `mm_vision_tower` key. No vision tower\n"
+            f"  will be built and loading will fail on get_vision_tower(). Expected base:\n"
+            f"{DOWNLOAD_HINT}"
+        )
+
+    # builder.load_pretrained_model dispatches on the directory name, not the config.
+    if 'llava' not in model_name.lower():
+        print(
+            f"Warning: base directory name '{model_name}' does not contain 'llava', so\n"
+            f"  load_pretrained_model will take the plain AutoModelForCausalLM branch -\n"
+            f"  no vision tower and image_processor=None. Rename the directory to include\n"
+            f"  'llava' (and avoid 'lora'/'mistral', which select other branches)."
+        )
 
 
 class FrozenLLaVAExtractor(nn.Module):
@@ -57,6 +120,7 @@ class FrozenLLaVAExtractor(nn.Module):
         # Load base model
         # IMPORTANT: Load directly on the target CUDA device to avoid multi-GPU splits
         model_name = get_model_name_from_path(llava_base_path)
+        _validate_base_checkpoint(llava_base_path, model_name)
         target_device_map = {"": device} if isinstance(device, str) and device.startswith("cuda") else None
         self.tokenizer, self.model, self.image_processor, self.context_len = load_pretrained_model(
             llava_base_path,

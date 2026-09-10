@@ -8,8 +8,8 @@ Recommended (no LLaVA weights needed): use a reference .pt cache
 
 On-the-fly LLaVA (optional): requires separate LLaVA checkpoints
   python infer_custom.py --rgb-dir ./examples/rgb --output-dir ./preds \\
-      --llava-base-path weights/llava/llava-1.5-7b-hf \\
-      --llava-lora-path weights/llava/llava-miragehd-lora
+      --llava-base-path weights/llava-v1.5-7b \\
+      --llava-lora-path weights/TherA_VLM
 
 Single-image example-guided mode: see infer_example_guided.py
 """

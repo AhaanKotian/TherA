@@ -12,7 +12,8 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent
 WEIGHTS_DIR = PROJECT_ROOT / "weights"
 
-DEFAULT_CHECKPOINT = WEIGHTS_DIR / "checkpoint"
+# DEFAULT_CHECKPOINT = WEIGHTS_DIR / "checkpoint"
+DEFAULT_CHECKPOINT = WEIGHTS_DIR
 DEFAULT_MERGED_MODEL = WEIGHTS_DIR / "merged_models"
 DEFAULT_PRETRAINED_SD = WEIGHTS_DIR / "stable-diffusion"
 DEFAULT_REFERENCE_CACHES = WEIGHTS_DIR / "reference_caches"

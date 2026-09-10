@@ -13,8 +13,8 @@ Mode: two-image (extract features from a reference RGB on-the-fly)
       --reference-image examples/ref/rgb.jpg \\
       --input-image examples/rgb/scene.jpg \\
       --output preds/scene_tir.png \\
-      --llava-base-path weights/llava/llava-1.5-7b-hf \\
-      --llava-lora-path weights/llava/llava-miragehd-lora
+      --llava-base-path weights/llava-v1.5-7b \\
+      --llava-lora-path weights/TherA_VLM
 """
 
 from __future__ import annotations
